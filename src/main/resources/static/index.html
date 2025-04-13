@@ -4,42 +4,92 @@
     <title>Collaborative Drawing</title>
     <style>
         canvas { border: 1px solid black; cursor: crosshair; }
+        #toolbar { margin-bottom: 10px; }
+        button { margin-right: 5px; }
     </style>
 </head>
 <body>
-    <canvas id="canvas" width="800" height="500"></canvas>
+<div id="toolbar">
+    <button onclick="setTool('pencil')">Pencil</button>
+    <button onclick="setTool('rectangle')">Rectangle</button>
+</div>
+<canvas id="canvas" width="800" height="500"></canvas>
 
-    <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const socket = new WebSocket('ws://' + window.location.host + '/draw');
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const socket = new WebSocket('ws://' + window.location.host + '/draw');
 
-        let drawing = false;
+    let drawing = false;
+    let currentTool = 'pencil';
+    let startX, startY;
 
-        canvas.addEventListener('mousedown', () => drawing = true);
-        canvas.addEventListener('mouseup', () => drawing = false);
-        canvas.addEventListener('mouseout', () => drawing = false);
+    function setTool(tool) {
+        currentTool = tool;
+    }
 
-        canvas.addEventListener('mousemove', (e) => {
-            if (!drawing) return;
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            draw(x, y);
-            socket.send(JSON.stringify({ x, y }));
-        });
-
-        socket.onmessage = (event) => {
-            const { x, y } = JSON.parse(event.data);
-            draw(x, y);
-        };
-
-        function draw(x, y) {
-            ctx.fillStyle = 'black';
-            ctx.beginPath();
-            ctx.arc(x, y, 2, 0, Math.PI * 2);
-            ctx.fill();
+    canvas.addEventListener('mousedown', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        startX = e.clientX - rect.left;
+        startY = e.clientY - rect.top;
+        drawing = true;
+        if (currentTool === 'pencil') {
+            draw(startX, startY);
+            socket.send(JSON.stringify({ x: startX, y: startY }));
         }
-    </script>
+    });
+
+    canvas.addEventListener('mouseup', (e) => {
+        if (!drawing) return;
+        drawing = false;
+        if (currentTool === 'rectangle') {
+            const rect = canvas.getBoundingClientRect();
+            const endX = e.clientX - rect.left;
+            const endY = e.clientY - rect.top;
+            const shape = {
+                type: 'rectangle',
+                x: Math.min(startX, endX),
+                y: Math.min(startY, endY),
+                width: Math.abs(endX - startX),
+                height: Math.abs(endY - startY),
+                color: 'black'
+            };
+            drawShape(shape);
+            socket.send(JSON.stringify(shape));
+        }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (!drawing || currentTool !== 'pencil') return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        draw(x, y);
+        socket.send(JSON.stringify({ x, y }));
+    });
+
+    socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'rectangle') {
+            drawShape(data);
+        } else {
+            draw(data.x, data.y);
+        }
+    };
+
+    function draw(x, y) {
+        ctx.fillStyle = 'black';
+        ctx.beginPath();
+        ctx.arc(x, y, 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function drawShape(shape) {
+        if (shape.type === 'rectangle') {
+            ctx.fillStyle = shape.color;
+            ctx.fillRect(shape.x, shape.y, shape.width, shape.height);
+        }
+    }
+</script>
 </body>
 </html>
