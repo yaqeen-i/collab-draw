@@ -20,6 +20,8 @@ public class DrawingHandler extends TextWebSocketHandler {
             session.sendMessage(new TextMessage(past));
         }
     }
+    // before putting this repo on github the websocket functionality had a problem, now all users can see the drawings
+    // from before
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
