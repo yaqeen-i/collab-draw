@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Collaborative Drawing</title>
+    <style>
+        canvas { border: 1px solid black; cursor: crosshair; }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" width="800" height="500"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const socket = new WebSocket('ws://' + window.location.host + '/draw');
+
+        let drawing = false;
+
+        canvas.addEventListener('mousedown', () => drawing = true);
+        canvas.addEventListener('mouseup', () => drawing = false);
+        canvas.addEventListener('mouseout', () => drawing = false);
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!drawing) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            draw(x, y);
+            socket.send(JSON.stringify({ x, y }));
+        });
+
+        socket.onmessage = (event) => {
+            const { x, y } = JSON.parse(event.data);
+            draw(x, y);
+        };
+
+        function draw(x, y) {
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(x, y, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    </script>
+</body>
+</html>
